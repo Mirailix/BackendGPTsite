@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GPT Chat Interface</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            width: 100%;
+            max-width: 900px;
+            height: 90vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px 30px;
+            text-align: center;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .header h1 {
+            font-size: 24px;
+            font-weight: 600;
+        }
+
+        .chat-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            background: #f8f9fa;
+        }
+
+        .chat-container::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .chat-container::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+
+        .chat-container::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 4px;
+        }
+
+        .chat-container::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+
+        .message {
+            margin-bottom: 20px;
+            display: flex;
+            animation: fadeIn 0.3s ease-in;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .message.user {
+            justify-content: flex-end;
+        }
+
+        .message.assistant {
+            justify-content: flex-start;
+        }
+
+        .message-content {
+            max-width: 70%;
+            padding: 15px 20px;
+            border-radius: 18px;
+            word-wrap: break-word;
+            line-height: 1.5;
+        }
+
+        .message.user .message-content {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-bottom-right-radius: 4px;
+        }
+
+        .message.assistant .message-content {
+            background: white;
+            color: #333;
+            border: 1px solid #e0e0e0;
+            border-bottom-left-radius: 4px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+        }
+
+        .loading {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: #666;
+            font-style: italic;
+        }
+
+        .loading-dots {
+            display: inline-flex;
+            gap: 4px;
+        }
+
+        .loading-dots span {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #667eea;
+            animation: bounce 1.4s infinite ease-in-out both;
+        }
+
+        .loading-dots span:nth-child(1) {
+            animation-delay: -0.32s;
+        }
+
+        .loading-dots span:nth-child(2) {
+            animation-delay: -0.16s;
+        }
+
+        @keyframes bounce {
+            0%, 80%, 100% {
+                transform: scale(0);
+            }
+            40% {
+                transform: scale(1);
+            }
+        }
+
+        .error {
+            background: #fee;
+            color: #c33;
+            padding: 15px 20px;
+            border-radius: 10px;
+            border: 1px solid #fcc;
+            margin-bottom: 20px;
+        }
+
+        .input-container {
+            padding: 20px;
+            background: white;
+            border-top: 1px solid #e0e0e0;
+            display: flex;
+            gap: 10px;
+        }
+
+        .input-wrapper {
+            flex: 1;
+            position: relative;
+        }
+
+        #messageInput {
+            width: 100%;
+            padding: 15px 20px;
+            border: 2px solid #e0e0e0;
+            border-radius: 25px;
+            font-size: 16px;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+
+        #messageInput:focus {
+            border-color: #667eea;
+        }
+
+        #sendButton {
+            padding: 15px 30px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 25px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            white-space: nowrap;
+        }
+
+        #sendButton:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        #sendButton:active:not(:disabled) {
+            transform: translateY(0);
+        }
+
+        #sendButton:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .history-button {
+            padding: 10px 20px;
+            background: #f0f0f0;
+            color: #333;
+            border: none;
+            border-radius: 20px;
+            font-size: 14px;
+            cursor: pointer;
+            margin-bottom: 10px;
+            transition: background 0.2s;
+        }
+
+        .history-button:hover {
+            background: #e0e0e0;
+        }
+
+        .history-container {
+            max-height: 200px;
+            overflow-y: auto;
+            margin-top: 10px;
+            padding: 10px;
+            background: white;
+            border-radius: 10px;
+            border: 1px solid #e0e0e0;
+            display: none;
+        }
+
+        .history-container.show {
+            display: block;
+        }
+
+        .history-item {
+            padding: 10px;
+            border-bottom: 1px solid #f0f0f0;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .history-item:hover {
+            background: #f8f9fa;
+        }
+
+        .history-item:last-child {
+            border-bottom: none;
+        }
+
+        .history-prompt {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 5px;
+        }
+
+        .history-response {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .empty-state {
+            text-align: center;
+            color: #999;
+            padding: 40px;
+            font-size: 18px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>💬 GPT Chat Interface</h1>
+        </div>
+        
+        <div class="chat-container" id="chatContainer">
+            <div class="empty-state">
+                Начните диалог, отправив сообщение ниже
+            </div>
+        </div>
+
+        <div class="input-container">
+            <form id="messageForm" onsubmit="event.preventDefault(); event.stopPropagation(); return false;" action="javascript:void(0);" method="post" novalidate>
+                <div class="input-wrapper">
+                    <button class="history-button" id="historyButton" type="button">📜 История запросов</button>
+                    <div class="history-container" id="historyContainer"></div>
+                    <input 
+                        type="text" 
+                        id="messageInput" 
+                        placeholder="Введите ваше сообщение..."
+                        autocomplete="off"
+                    >
+                </div>
+                <button id="sendButton" type="button">Отправить</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // Safari-специфичная защита от перезагрузки страницы
+        // Перехватываем все попытки submit до загрузки DOM
+        (function() {
+            document.addEventListener('DOMContentLoaded', function() {
+                const forms = document.querySelectorAll('form');
+                forms.forEach(function(form) {
+                    form.addEventListener('submit', function(e) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        e.stopImmediatePropagation();
+                        return false;
+                    }, true);
+                });
+            }, false);
+        })();
+        
+        const API_URL = 'http://localhost:8000';
+        const chatContainer = document.getElementById('chatContainer');
+        const messageInput = document.getElementById('messageInput');
+        const sendButton = document.getElementById('sendButton');
+        const historyButton = document.getElementById('historyButton');
+        const historyContainer = document.getElementById('historyContainer');
+        let isLoading = false;
+        let historyVisible = false;
+
+        // Защита от случайной перезагрузки страницы
+        window.addEventListener('beforeunload', (e) => {
+            if (isLoading) {
+                e.preventDefault();
+                e.returnValue = '';
+                return '';
+            }
+        });
+
+        // Удаление пустого состояния
+        function removeEmptyState() {
+            const emptyState = chatContainer.querySelector('.empty-state');
+            if (emptyState) {
+                emptyState.remove();
+            }
+        }
+
+        // Добавление сообщения в чат
+        function addMessage(content, isUser) {
+            removeEmptyState();
+            
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${isUser ? 'user' : 'assistant'}`;
+            
+            const contentDiv = document.createElement('div');
+            contentDiv.className = 'message-content';
+            contentDiv.textContent = content;
+            
+            messageDiv.appendChild(contentDiv);
+            chatContainer.appendChild(messageDiv);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+
+        // Показать индикатор загрузки
+        function showLoading() {
+            removeEmptyState();
+            
+            const loadingDiv = document.createElement('div');
+            loadingDiv.className = 'message assistant';
+            loadingDiv.id = 'loadingMessage';
+            
+            const loadingContent = document.createElement('div');
+            loadingContent.className = 'message-content loading';
+            loadingContent.innerHTML = `
+                <span>Думаю</span>
+                <div class="loading-dots">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </div>
+            `;
+            
+            loadingDiv.appendChild(loadingContent);
+            chatContainer.appendChild(loadingDiv);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+
+        // Убрать индикатор загрузки
+        function hideLoading() {
+            const loadingMessage = document.getElementById('loadingMessage');
+            if (loadingMessage) {
+                loadingMessage.remove();
+            }
+        }
+
+        // Показать ошибку
+        function showError(message) {
+            removeEmptyState();
+            
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'error';
+            errorDiv.textContent = `Ошибка: ${message}`;
+            chatContainer.appendChild(errorDiv);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+
+        // Отправка сообщения
+        async function sendMessage() {
+            console.log('sendMessage called');
+            const message = messageInput.value.trim();
+            
+            if (!message || isLoading) {
+                console.log('Message empty or loading');
+                return false;
+            }
+
+            // Добавляем сообщение пользователя
+            addMessage(message, true);
+            messageInput.value = '';
+            
+            // Показываем индикатор загрузки
+            isLoading = true;
+            sendButton.disabled = true;
+            showLoading();
+            
+            console.log('Sending request to API');
+
+            try {
+                const response = await fetch(`${API_URL}/requests`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ prompt: message })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const data = await response.json();
+                console.log('Response received:', data);
+                
+                if (!data || !data.answer) {
+                    throw new Error('Некорректный ответ от сервера');
+                }
+                
+                hideLoading();
+                addMessage(data.answer, false);
+                console.log('Message added successfully');
+                
+            } catch (error) {
+                console.error('Error in sendMessage:', error);
+                hideLoading();
+                showError(error.message || 'Не удалось отправить запрос. Убедитесь, что API запущен на localhost:8000');
+            } finally {
+                isLoading = false;
+                sendButton.disabled = false;
+                // Используем setTimeout для фокуса, чтобы избежать проблем
+                setTimeout(() => {
+                    messageInput.focus();
+                }, 100);
+            }
+            return false;
+        }
+
+        // Загрузка истории запросов
+        async function loadHistory() {
+            try {
+                const response = await fetch(`${API_URL}/requests`);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const history = await response.json();
+                
+                if (Array.isArray(history) && history.length > 0) {
+                    historyContainer.innerHTML = '';
+                    history.forEach(item => {
+                        const historyItem = document.createElement('div');
+                        historyItem.className = 'history-item';
+                        historyItem.innerHTML = `
+                            <div class="history-prompt">${escapeHtml(item.prompt || '')}</div>
+                            <div class="history-response">${escapeHtml((item.response || '').substring(0, 100))}${(item.response || '').length > 100 ? '...' : ''}</div>
+                        `;
+                        historyItem.addEventListener('click', () => {
+                            messageInput.value = item.prompt || '';
+                            messageInput.focus();
+                            toggleHistory();
+                        });
+                        historyContainer.appendChild(historyItem);
+                    });
+                } else {
+                    historyContainer.innerHTML = '<div style="padding: 20px; text-align: center; color: #999;">История пуста</div>';
+                }
+            } catch (error) {
+                historyContainer.innerHTML = `<div style="padding: 20px; text-align: center; color: #c33;">Ошибка загрузки истории: ${error.message}</div>`;
+                console.error('Error loading history:', error);
+            }
+        }
+
+        // Переключение видимости истории
+        async function toggleHistory() {
+            historyVisible = !historyVisible;
+            
+            if (historyVisible) {
+                await loadHistory();
+                historyContainer.classList.add('show');
+                historyButton.textContent = '✖️ Скрыть историю';
+            } else {
+                historyContainer.classList.remove('show');
+                historyButton.textContent = '📜 История запросов';
+            }
+        }
+
+        // Экранирование HTML
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Получаем форму
+        const messageForm = document.getElementById('messageForm');
+        
+        // Определяем Safari
+        const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+        console.log('Browser detected:', isSafari ? 'Safari' : 'Other');
+        
+        // Обработчик submit формы - главная защита от перезагрузки
+        // Для Safari используем capture phase и более агрессивную обработку
+        messageForm.addEventListener('submit', function(e) {
+            console.log('Form submit prevented');
+            // Для Safari важно вызывать preventDefault синхронно и первым делом
+            if (e.preventDefault) {
+                e.preventDefault();
+            }
+            if (e.stopPropagation) {
+                e.stopPropagation();
+            }
+            if (e.stopImmediatePropagation) {
+                e.stopImmediatePropagation();
+            }
+            // Для Safari также важно вернуть false
+            sendMessage();
+            return false;
+        }, true); // Используем capture phase для Safari
+        
+        // Обработчики событий
+        sendButton.addEventListener('click', function(e) {
+            if (e.preventDefault) e.preventDefault();
+            if (e.stopPropagation) e.stopPropagation();
+            if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+            sendMessage();
+            return false;
+        }, false);
+        
+        messageInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                if (e.preventDefault) e.preventDefault();
+                if (e.stopPropagation) e.stopPropagation();
+                if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+                sendMessage();
+                return false;
+            }
+        }, false);
+        
+        messageInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                if (e.preventDefault) e.preventDefault();
+                if (e.stopPropagation) e.stopPropagation();
+                if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+                return false;
+            }
+        }, false);
+        
+        // Дополнительная защита - предотвращаем submit на уровне документа
+        // Для Safari это критично - перехватываем на capture phase
+        document.addEventListener('submit', function(e) {
+            if (e.target === messageForm || messageForm.contains(e.target)) {
+                console.log('Document-level submit prevented');
+                if (e.preventDefault) e.preventDefault();
+                if (e.stopPropagation) e.stopPropagation();
+                if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+                return false;
+            }
+        }, true); // Capture phase - перехватываем до того, как событие дойдет до формы
+
+        historyButton.addEventListener('click', function(e) {
+            if (e.preventDefault) e.preventDefault();
+            if (e.stopPropagation) e.stopPropagation();
+            toggleHistory();
+            return false;
+        });
+
+        // Проверка, что страница открыта через HTTP, а не file://
+        if (window.location.protocol === 'file:') {
+            alert('ВНИМАНИЕ: Страница открыта через file:// протокол. Пожалуйста, откройте её через HTTP сервер (например, через Live Server на порту 5500).');
+        }
+
+        // Фокус на поле ввода при загрузке
+        messageInput.focus();
+        
+        // Дополнительная защита - перехватываем все попытки навигации
+        window.addEventListener('popstate', (e) => {
+            e.preventDefault();
+        });
+        
+        // Предотвращаем любые попытки перезагрузки через другие способы
+        document.addEventListener('keydown', (e) => {
+            // Предотвращаем F5, Ctrl+R, Ctrl+Shift+R
+            if (e.key === 'F5' || (e.ctrlKey && e.key === 'r') || (e.ctrlKey && e.shiftKey && e.key === 'R')) {
+                if (isLoading) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    return false;
+                }
+            }
+        });
+    </script>
+</body>
+</html>
